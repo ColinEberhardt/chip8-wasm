@@ -1,0 +1,49 @@
+<!doctype html>
+<script src="https://unpkg.com/tape-standalone"></script>
+<script>
+const fetchAndInstantiate = (url, importObject) =>
+  fetch(url).then(response =>
+    response.arrayBuffer()
+  ).then(bytes =>
+    WebAssembly.instantiate(bytes, importObject)
+  ).then(results =>
+    results.instance
+  );
+
+
+test('08xy4', t => {
+  t.plan(1);
+
+  const memory = new WebAssembly.Memory({ initial : 1 });
+  const importObject = {
+    j: {
+      m: memory
+    }
+  };
+
+  const programMemory = new Uint8Array(
+    memory.buffer,
+    0,
+    4096
+  );
+
+  programMemory[0x0200] = 0x80;
+  programMemory[0x0201] = 0x13; // 61455
+
+  return fetchAndInstantiate('chip8.wasm', importObject)
+    .then((instance) => {
+      // initialise the program counter
+      programMemory[0xEA0] = 0x00;
+      programMemory[0xEA1] = 0x02;
+
+      // initialise the register values
+      programMemory[0xEA2] = 8; // V0
+      programMemory[0xEA3] = 5; // V1
+
+      // run the program
+      instance.exports.l();
+
+      t.equal(programMemory[0xEA2], 13);
+    });
+})
+</script>
